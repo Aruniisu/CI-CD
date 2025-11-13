@@ -1,21 +1,23 @@
-name: CI-CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
 
 jobs:
-  test:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Use Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install
@@ -23,45 +25,11 @@ jobs:
       - name: Run tests
         run: npm test
 
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
+      - name: Build app
+        run: npm run build
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-demo:${{ github.sha }}
-
-  deploy-heroku:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: ${{ secrets.HEROKU_API_KEY != '' && secrets.HEROKU_APP_NAME != '' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install heroku-cli
+      - name: Deploy
         run: |
-          curl https://cli-assets.heroku.com/install.sh | sh
-
-      - name: Deploy to Heroku using container registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
-          DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-demo:${{ github.sha }}
-        run: |
-          # Log in to Heroku container registry and push image
-          echo "$HEROKU_API_KEY" | docker login --username=_ --password-stdin registry.heroku.com
-          docker tag "$DOCKER_IMAGE" registry.heroku.com/$HEROKU_APP_NAME/web
-          docker push registry.heroku.com/$HEROKU_APP_NAME/web
-          heroku container:release web --app $HEROKU_APP_NAME
+          # Example: deploy to Vercel
+          npm install -g vercel
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
